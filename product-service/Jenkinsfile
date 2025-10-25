@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
+        IMAGE_NAME = "docker.io/Valentapi16/product-service:dev"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'develop', url: 'https://github.com/Valentapi16/ecommerce-microservice-backend-app.git'
+            }
+        }
+
+        stage('Build Maven') {
+            steps {
+                dir('product-service') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('product-service') {
+                    sh "docker build -t ${IMAGE_NAME} ."
+                }
+            }
+        }
+
+        stage('Login DockerHub') {
+            steps {
+                sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh "docker push ${IMAGE_NAME}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline product-service completado correctamente!"
+        }
+        failure {
+            echo "❌ Error en el pipeline de product-service"
+        }
+    }
+}
