@@ -1,21 +1,32 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk21'
+    }
+
     environment {
+        PROJECT_NAME = 'product-service'
+        PROJECT_VERSION = '0.1.0'
+        IMAGE_NAME = "valentapi16/${PROJECT_NAME}:dev"
         DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        IMAGE_NAME = "docker.io/Valentapi16/product-service:dev"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'develop', url: 'https://github.com/Valentapi16/ecommerce-microservice-backend-app.git'
+                echo '🔄 Clonando repositorio...'
+                checkout([$class: 'GitSCM',
+                    branches: [[name: '*/develop']],
+                    userRemoteConfigs: [[url: 'https://github.com/Valentapi16/ecommerce-microservice-backend-app.git']]
+                ])
             }
         }
 
         stage('Build Maven') {
             steps {
                 dir('product-service') {
+                    echo '🛠️ Compilando el proyecto con Maven...'
                     sh 'mvn clean package -DskipTests'
                 }
             }
@@ -24,6 +35,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('product-service') {
+                    echo '🐳 Construyendo imagen Docker...'
                     sh "docker build -t ${IMAGE_NAME} ."
                 }
             }
@@ -31,12 +43,14 @@ pipeline {
 
         stage('Login DockerHub') {
             steps {
+                echo '🔐 Iniciando sesión en DockerHub...'
                 sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
             }
         }
 
         stage('Push Docker Image') {
             steps {
+                echo '🚀 Subiendo imagen a DockerHub...'
                 sh "docker push ${IMAGE_NAME}"
             }
         }
@@ -44,10 +58,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline product-service completado correctamente!"
+            echo "✅ Pipeline completado exitosamente para ${PROJECT_NAME}"
         }
         failure {
-            echo "❌ Error en el pipeline de product-service"
+            echo "❌ Error en el pipeline de ${PROJECT_NAME}"
         }
     }
 }
