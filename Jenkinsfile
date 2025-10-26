@@ -3,8 +3,8 @@ pipeline {
     agent any
     
     tools {
-        maven 'Maven-3.9.9'
-        jdk 'JDK-17'
+        maven 'MAVEN-3.9.9'
+        jdk 'jdk17'
     }
     
     environment {
@@ -65,7 +65,6 @@ pipeline {
             steps {
                 echo "🔥 Running quick smoke tests..."
                 script {
-                    // Pruebas básicas de compilación
                     sh 'echo "Verifying artifacts exist..."'
                 }
             }
