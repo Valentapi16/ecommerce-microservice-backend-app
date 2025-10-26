@@ -19,19 +19,24 @@ pipeline {
         
         stage('Docker Login') {
             steps {
-                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                script {
+                    // Convertir username a minúsculas por si acaso
+                    sh '''
+                        USERNAME=$(echo "$DOCKER_HUB_CREDENTIALS_USR" | tr '[:upper:]' '[:lower:]')
+                        echo "$DOCKER_HUB_CREDENTIALS_PSW" | docker login -u "$USERNAME" --password-stdin
+                    '''
+                }
             }
         }
         
-        stage('Build & Push Docker Images (con Maven interno)') {
+        stage('Build & Push Docker Images') {
             steps {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        echo "📦 Building ${service}..."
+                        echo "📦 Building and pushing ${service}..."
                         sh """
                             cd ${service}
-                            # El Dockerfile ya tiene Maven, solo hacemos build
                             docker build -t ${DOCKER_HUB_REPO}/${service}:${VERSION} \
                                         -t ${DOCKER_HUB_REPO}/${service}:dev-latest .
                             docker push ${DOCKER_HUB_REPO}/${service}:${VERSION}
