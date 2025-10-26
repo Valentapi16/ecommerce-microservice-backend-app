@@ -1,4 +1,4 @@
-// Jenkinsfile-dev - Versión sin contenedor anidado
+// Jenkinsfile-dev - VERSIÓN SIMPLE Y FUNCIONAL
 pipeline {
     agent any
     
@@ -12,25 +12,9 @@ pipeline {
         SERVICES = "product-service order-service payment-service user-service shipping-service favourite-service"
         ENVIRONMENT = "dev"
         VERSION = "dev-${BUILD_NUMBER}"
-        // Forzar Java 17
-        JAVA_HOME = "/opt/java/openjdk"
     }
     
     stages {
-        stage('Setup Java 17') {
-            steps {
-                sh '''
-                    # Verificar si existe Java 17, si no, usar el del sistema
-                    if [ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]; then
-                        export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-                    elif [ -d "/usr/lib/jvm/temurin-17-jdk-amd64" ]; then
-                        export JAVA_HOME="/usr/lib/jvm/temurin-17-jdk-amd64"
-                    fi
-                    java -version
-                '''
-            }
-        }
-        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -38,22 +22,27 @@ pipeline {
             }
         }
         
-        stage('Build All Services with Docker Maven') {
+        stage('Verify Tools') {
+            steps {
+                sh '''
+                    echo "=== Verifying tools ==="
+                    java -version
+                    mvn -version
+                    docker --version
+                '''
+            }
+        }
+        
+        stage('Build All Services') {
             steps {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        echo "📦 Building ${service} using Docker Maven container..."
-                        dir(service) {
-                            sh '''
-                                docker run --rm \
-                                    -v "$(pwd)":/app \
-                                    -v "$HOME/.m2":/root/.m2 \
-                                    -w /app \
-                                    maven:3.9.9-eclipse-temurin-17 \
-                                    mvn clean package -DskipTests
-                            '''
-                        }
+                        echo "📦 Building ${service}..."
+                        sh """
+                            cd ${service}
+                            mvn clean package -DskipTests
+                        """
                     }
                 }
             }
@@ -70,14 +59,13 @@ pipeline {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        dir(service) {
-                            sh """
-                                docker build -t ${DOCKER_HUB_REPO}/${service}:${VERSION} \
-                                            -t ${DOCKER_HUB_REPO}/${service}:dev-latest .
-                                docker push ${DOCKER_HUB_REPO}/${service}:${VERSION}
-                                docker push ${DOCKER_HUB_REPO}/${service}:dev-latest
-                            """
-                        }
+                        sh """
+                            cd ${service}
+                            docker build -t ${DOCKER_HUB_REPO}/${service}:${VERSION} \
+                                        -t ${DOCKER_HUB_REPO}/${service}:dev-latest .
+                            docker push ${DOCKER_HUB_REPO}/${service}:${VERSION}
+                            docker push ${DOCKER_HUB_REPO}/${service}:dev-latest
+                        """
                     }
                 }
             }
@@ -90,6 +78,13 @@ pipeline {
         }
         success {
             echo "✅ DEV build completed successfully!"
+            echo "Images pushed:"
+            script {
+                def services = SERVICES.split()
+                services.each { service ->
+                    echo "  - ${DOCKER_HUB_REPO}/${service}:${VERSION}"
+                }
+            }
         }
         failure {
             echo "❌ DEV build failed!"
