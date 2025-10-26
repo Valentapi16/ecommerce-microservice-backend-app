@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = "docker.io/Valentapi16"
-        DOCKER_CREDENTIALS = credentials('dockerhub')
-        SERVICES = "product-service order-service user-service payment-service inventory-service gateway-service"
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub')
+        DOCKER_HUB_REPO = "docker.io/valentapi16"
+        JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
     }
 
     stages {
@@ -12,22 +13,26 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "🔄 Clonando repositorio..."
-                checkout([$class: 'GitSCM',
-                    branches: [[name: '*/develop']],
-                    userRemoteConfigs: [[url: 'https://github.com/Valentapi16/ecommerce-microservice-backend-app.git']]
-                ])
+                checkout scm
             }
         }
 
         stage('Build Maven') {
             steps {
                 script {
-                    withEnv(["JAVA_HOME=${tool 'jdk17'}", "PATH+JDK=${tool 'jdk17'}/bin"]) {
-                        for (service in SERVICES.split(' ')) {
-                            echo "🛠️ Compilando ${service}..."
-                            dir("${service}") {
-                                sh 'mvn clean package -DskipTests'
-                            }
+                    def services = [
+                        "product-service",
+                        "order-service",
+                        "payment-service",
+                        "user-service",
+                        "shipping-service",
+                        "favourite-service"
+                    ]
+
+                    for (service in services) {
+                        echo "🛠️ Compilando ${service}..."
+                        dir("${service}") {
+                            sh 'mvn clean package -DskipTests'
                         }
                     }
                 }
@@ -37,11 +42,20 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    for (service in SERVICES.split(' ')) {
+                    def services = [
+                        "product-service",
+                        "order-service",
+                        "payment-service",
+                        "user-service",
+                        "shipping-service",
+                        "favourite-service"
+                    ]
+
+                    for (service in services) {
                         echo "🐳 Construyendo imagen Docker para ${service}..."
-                        sh """
-                            docker build -t ${REGISTRY}/${service}:dev -f ${service}/Dockerfile .
-                        """
+                        dir("${service}") {
+                            sh "docker build -t ${DOCKER_HUB_REPO}/${service}:dev ."
+                        }
                     }
                 }
             }
@@ -50,16 +64,25 @@ pipeline {
         stage('Login DockerHub') {
             steps {
                 echo "🔐 Iniciando sesión en Docker Hub..."
-                sh "echo ${DOCKER_CREDENTIALS_PSW} | docker login -u ${DOCKER_CREDENTIALS_USR} --password-stdin"
+                sh "echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin"
             }
         }
 
         stage('Push Docker Images') {
             steps {
                 script {
-                    for (service in SERVICES.split(' ')) {
-                        echo "🚀 Subiendo imagen de ${service} a Docker Hub..."
-                        sh "docker push ${REGISTRY}/${service}:dev"
+                    def services = [
+                        "product-service",
+                        "order-service",
+                        "payment-service",
+                        "user-service",
+                        "shipping-service",
+                        "favourite-service"
+                    ]
+
+                    for (service in services) {
+                        echo "📤 Subiendo imagen de ${service} a Docker Hub..."
+                        sh "docker push ${DOCKER_HUB_REPO}/${service}:dev"
                     }
                 }
             }
@@ -68,7 +91,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline ejecutado correctamente. Todas las imágenes fueron subidas a Docker Hub."
+            echo "✅ Pipeline completado exitosamente."
         }
         failure {
             echo "❌ Error durante la ejecución del pipeline."
