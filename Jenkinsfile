@@ -1,10 +1,9 @@
-// Jenkinsfile-dev
+// Jenkinsfile-dev - Versión simplificada
 pipeline {
     agent any
     
     tools {
         maven 'MAVEN-3.9.9'
-        jdk 'jdk17'
     }
     
     environment {
@@ -19,7 +18,18 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "🚀 Building for DEV environment - Quick iteration"
+                echo "🚀 Building for DEV environment"
+            }
+        }
+        
+        stage('Verify Environment') {
+            steps {
+                sh '''
+                    echo "=== Environment Info ==="
+                    java -version
+                    mvn -version
+                    docker --version
+                '''
             }
         }
         
@@ -60,21 +70,13 @@ pipeline {
                 }
             }
         }
-        
-        stage('Quick Smoke Test') {
-            steps {
-                echo "🔥 Running quick smoke tests..."
-                script {
-                    sh 'echo "Verifying artifacts exist..."'
-                }
-            }
-        }
     }
     
     post {
         always {
-            sh 'docker logout || true'
-            cleanWs()
+            script {
+                sh 'docker logout || true'
+            }
         }
         success {
             echo "✅ DEV build completed successfully!"
