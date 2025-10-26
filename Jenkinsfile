@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'MAVEN-3.9.9'
+    }
+
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('dockerhub')
         DOCKER_HUB_REPO = "valentapi16"
@@ -15,7 +19,7 @@ pipeline {
             }
         }
 
-        stage('Build & Package with Maven') {
+        stage('Build Maven') {
             steps {
                 script {
                     SERVICES.split().each { service ->
@@ -31,7 +35,7 @@ pipeline {
         stage('Docker Login') {
             steps {
                 sh '''
-                echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin
+                    echo "${DOCKER_HUB_CREDENTIALS_PSW}" | docker login -u "${DOCKER_HUB_CREDENTIALS_USR}" --password-stdin
                 '''
             }
         }
