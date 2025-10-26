@@ -1,10 +1,9 @@
-// Jenkinsfile-dev - VERSIÓN SIMPLE Y FUNCIONAL
+// Jenkinsfile-dev
 pipeline {
     agent any
     
     tools {
         maven 'MAVEN-3.9.9'
-        jdk 'jdk17'
     }
     
     environment {
@@ -19,18 +18,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "🚀 Building for DEV environment - Quick iteration"
-            }
-        }
-        
-        stage('Verify Tools') {
-            steps {
-                sh '''
-                    echo "=== Verifying tools ==="
-                    java -version
-                    mvn -version
-                    docker --version
-                '''
+                echo "🚀 Building for DEV environment"
             }
         }
         
@@ -39,10 +27,14 @@ pipeline {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        echo "📦 Building ${service}..."
+                        echo "📦 Building ${service} with Maven+Java17..."
                         sh """
-                            cd ${service}
-                            mvn clean package -DskipTests
+                            docker run --rm \
+                                -v "\$(pwd)/${service}":/app \
+                                -v "\$HOME/.m2":/root/.m2 \
+                                -w /app \
+                                maven:3.9.9-eclipse-temurin-17 \
+                                mvn clean package -DskipTests
                         """
                     }
                 }
@@ -75,15 +67,17 @@ pipeline {
     
     post {
         always {
-            sh 'docker logout || true'
+            script {
+                sh 'docker logout || true'
+            }
         }
         success {
             echo "✅ DEV build completed successfully!"
-            echo "Images pushed:"
+            echo "📦 Images built and pushed:"
             script {
                 def services = SERVICES.split()
                 services.each { service ->
-                    echo "  - ${DOCKER_HUB_REPO}/${service}:${VERSION}"
+                    echo "   - ${DOCKER_HUB_REPO}/${service}:${VERSION}"
                 }
             }
         }
