@@ -1,9 +1,10 @@
-// Jenkinsfile-dev - Versión simplificada
+// Jenkinsfile-dev
 pipeline {
-    agent any
-    
-    tools {
-        maven 'MAVEN-3.9.9'
+    agent {
+        docker {
+            image 'maven:3.9.9-eclipse-temurin-17'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v /root/.m2:/root/.m2'
+        }
     }
     
     environment {
@@ -18,7 +19,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "🚀 Building for DEV environment"
+                echo "🚀 Building for DEV environment - Quick iteration"
             }
         }
         
@@ -74,9 +75,7 @@ pipeline {
     
     post {
         always {
-            script {
-                sh 'docker logout || true'
-            }
+            sh 'docker logout || true'
         }
         success {
             echo "✅ DEV build completed successfully!"
