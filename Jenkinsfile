@@ -1,10 +1,5 @@
-// Jenkinsfile-dev
 pipeline {
     agent any
-    
-    tools {
-        maven 'MAVEN-3.9.9'
-    }
     
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('dockerhub')
@@ -12,7 +7,6 @@ pipeline {
         SERVICES = "product-service order-service payment-service user-service shipping-service favourite-service"
         ENVIRONMENT = "dev"
         VERSION = "dev-${BUILD_NUMBER}"
-        WORKSPACE_PATH = "${WORKSPACE}"
     }
     
     stages {
@@ -23,38 +17,21 @@ pipeline {
             }
         }
         
-        stage('Build All Services') {
-            steps {
-                script {
-                    def services = SERVICES.split()
-                    services.each { service ->
-                        echo "📦 Building ${service} with Maven+Java17..."
-                        sh """
-                            docker run --rm \
-                                -v "${WORKSPACE_PATH}/${service}":/app \
-                                -v "${HOME}/.m2":/root/.m2 \
-                                -w /app \
-                                maven:3.9.9-eclipse-temurin-17 \
-                                mvn clean package -DskipTests
-                        """
-                    }
-                }
-            }
-        }
-        
         stage('Docker Login') {
             steps {
                 sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
             }
         }
         
-        stage('Build & Push Docker Images') {
+        stage('Build & Push Docker Images (con Maven interno)') {
             steps {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
+                        echo "📦 Building ${service}..."
                         sh """
                             cd ${service}
+                            # El Dockerfile ya tiene Maven, solo hacemos build
                             docker build -t ${DOCKER_HUB_REPO}/${service}:${VERSION} \
                                         -t ${DOCKER_HUB_REPO}/${service}:dev-latest .
                             docker push ${DOCKER_HUB_REPO}/${service}:${VERSION}
@@ -73,8 +50,7 @@ pipeline {
             }
         }
         success {
-            echo "✅ ¡DEV build completado exitosamente!"
-            echo "📦 Imágenes construidas:"
+            echo "✅ ¡Todas las imágenes construidas y subidas!"
             script {
                 def services = SERVICES.split()
                 services.each { service ->
@@ -83,7 +59,7 @@ pipeline {
             }
         }
         failure {
-            echo "❌ DEV build falló"
+            echo "❌ Build falló"
         }
     }
 }
