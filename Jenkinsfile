@@ -12,6 +12,7 @@ pipeline {
         SERVICES = "product-service order-service payment-service user-service shipping-service favourite-service"
         ENVIRONMENT = "dev"
         VERSION = "dev-${BUILD_NUMBER}"
+        WORKSPACE_PATH = "${WORKSPACE}"
     }
     
     stages {
@@ -30,8 +31,8 @@ pipeline {
                         echo "📦 Building ${service} with Maven+Java17..."
                         sh """
                             docker run --rm \
-                                -v "\$(pwd)/${service}":/app \
-                                -v "\$HOME/.m2":/root/.m2 \
+                                -v "${WORKSPACE_PATH}/${service}":/app \
+                                -v "${HOME}/.m2":/root/.m2 \
                                 -w /app \
                                 maven:3.9.9-eclipse-temurin-17 \
                                 mvn clean package -DskipTests
@@ -72,17 +73,17 @@ pipeline {
             }
         }
         success {
-            echo "✅ DEV build completed successfully!"
-            echo "📦 Images built and pushed:"
+            echo "✅ ¡DEV build completado exitosamente!"
+            echo "📦 Imágenes construidas:"
             script {
                 def services = SERVICES.split()
                 services.each { service ->
-                    echo "   - ${DOCKER_HUB_REPO}/${service}:${VERSION}"
+                    echo "   ✓ ${DOCKER_HUB_REPO}/${service}:${VERSION}"
                 }
             }
         }
         failure {
-            echo "❌ DEV build failed!"
+            echo "❌ DEV build falló"
         }
     }
 }
