@@ -17,10 +17,28 @@ pipeline {
             }
         }
         
+        stage('Build JARs with Maven') {
+            steps {
+                script {
+                    def services = SERVICES.split()
+                    services.each { service ->
+                        echo "📦 Compiling ${service} with Maven..."
+                        sh """
+                            docker run --rm \
+                                -v "${WORKSPACE}/${service}":/usr/src/app \
+                                -v "${HOME}/.m2":/root/.m2 \
+                                -w /usr/src/app \
+                                maven:3.9.9-eclipse-temurin-17 \
+                                mvn clean package -DskipTests
+                        """
+                    }
+                }
+            }
+        }
+        
         stage('Docker Login') {
             steps {
                 script {
-                    // Convertir username a minúsculas por si acaso
                     sh '''
                         USERNAME=$(echo "$DOCKER_HUB_CREDENTIALS_USR" | tr '[:upper:]' '[:lower:]')
                         echo "$DOCKER_HUB_CREDENTIALS_PSW" | docker login -u "$USERNAME" --password-stdin
@@ -34,7 +52,7 @@ pipeline {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        echo "📦 Building and pushing ${service}..."
+                        echo "🐳 Building Docker image for ${service}..."
                         sh """
                             cd ${service}
                             docker build -t ${DOCKER_HUB_REPO}/${service}:${VERSION} \
@@ -55,11 +73,12 @@ pipeline {
             }
         }
         success {
-            echo "✅ ¡Todas las imágenes construidas y subidas!"
+            echo "✅ ¡ÉXITO! Todas las imágenes construidas y subidas!"
             script {
                 def services = SERVICES.split()
                 services.each { service ->
                     echo "   ✓ ${DOCKER_HUB_REPO}/${service}:${VERSION}"
+                    echo "   ✓ ${DOCKER_HUB_REPO}/${service}:dev-latest"
                 }
             }
         }
