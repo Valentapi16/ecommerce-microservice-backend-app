@@ -1,15 +1,18 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.8.5-openjdk-17'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('dockerhub')
-        DOCKER_HUB_REPO = "docker.io/valentapi16"
-        JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        DOCKER_HUB_REPO = "valentapi16"
+        SERVICES = "product-service order-service payment-service user-service shipping-service favourite-service"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 echo "🔄 Clonando repositorio..."
@@ -17,72 +20,34 @@ pipeline {
             }
         }
 
-        stage('Build Maven') {
+        stage('Build & Package with Maven') {
             steps {
                 script {
-                    def services = [
-                        "product-service",
-                        "order-service",
-                        "payment-service",
-                        "user-service",
-                        "shipping-service",
-                        "favourite-service"
-                    ]
-
-                    for (service in services) {
+                    SERVICES.split().each { service ->
                         echo "🛠️ Compilando ${service}..."
                         dir("${service}") {
-                            sh 'mvn clean package -DskipTests'
+                            sh "mvn clean package -DskipTests"
                         }
                     }
                 }
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Docker Login') {
             steps {
-                script {
-                    def services = [
-                        "product-service",
-                        "order-service",
-                        "payment-service",
-                        "user-service",
-                        "shipping-service",
-                        "favourite-service"
-                    ]
-
-                    for (service in services) {
-                        echo "🐳 Construyendo imagen Docker para ${service}..."
-                        dir("${service}") {
-                            sh "docker build -t ${DOCKER_HUB_REPO}/${service}:dev ."
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Login DockerHub') {
-            steps {
-                echo "🔐 Iniciando sesión en Docker Hub..."
                 sh "echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin"
             }
         }
 
-        stage('Push Docker Images') {
+        stage('Build & Push Docker Images') {
             steps {
                 script {
-                    def services = [
-                        "product-service",
-                        "order-service",
-                        "payment-service",
-                        "user-service",
-                        "shipping-service",
-                        "favourite-service"
-                    ]
-
-                    for (service in services) {
-                        echo "📤 Subiendo imagen de ${service} a Docker Hub..."
-                        sh "docker push ${DOCKER_HUB_REPO}/${service}:dev"
+                    SERVICES.split().each { service ->
+                        echo "🐳 Construyendo imagen de ${service}..."
+                        dir("${service}") {
+                            sh "docker build -t ${DOCKER_HUB_REPO}/${service}:dev ."
+                            sh "docker push ${DOCKER_HUB_REPO}/${service}:dev"
+                        }
                     }
                 }
             }
@@ -91,10 +56,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completado exitosamente."
+            echo "✅ Todas las imágenes fueron construidas y enviadas correctamente."
         }
         failure {
-            echo "❌ Error durante la ejecución del pipeline."
+            echo "❌ Falló el pipeline. Revisar logs."
         }
     }
 }
