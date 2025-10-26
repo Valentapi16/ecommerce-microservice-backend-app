@@ -1,10 +1,9 @@
-// Jenkinsfile-dev
+// Jenkinsfile-dev - Versión sin contenedor anidado
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.9-eclipse-temurin-17'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v /root/.m2:/root/.m2'
-        }
+    agent any
+    
+    tools {
+        maven 'MAVEN-3.9.9'
     }
     
     environment {
@@ -13,9 +12,25 @@ pipeline {
         SERVICES = "product-service order-service payment-service user-service shipping-service favourite-service"
         ENVIRONMENT = "dev"
         VERSION = "dev-${BUILD_NUMBER}"
+        // Forzar Java 17
+        JAVA_HOME = "/opt/java/openjdk"
     }
     
     stages {
+        stage('Setup Java 17') {
+            steps {
+                sh '''
+                    # Verificar si existe Java 17, si no, usar el del sistema
+                    if [ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]; then
+                        export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+                    elif [ -d "/usr/lib/jvm/temurin-17-jdk-amd64" ]; then
+                        export JAVA_HOME="/usr/lib/jvm/temurin-17-jdk-amd64"
+                    fi
+                    java -version
+                '''
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -23,25 +38,21 @@ pipeline {
             }
         }
         
-        stage('Verify Environment') {
-            steps {
-                sh '''
-                    echo "=== Environment Info ==="
-                    java -version
-                    mvn -version
-                    docker --version
-                '''
-            }
-        }
-        
-        stage('Build All Services') {
+        stage('Build All Services with Docker Maven') {
             steps {
                 script {
                     def services = SERVICES.split()
                     services.each { service ->
-                        echo "📦 Building ${service}..."
+                        echo "📦 Building ${service} using Docker Maven container..."
                         dir(service) {
-                            sh 'mvn clean package -DskipTests'
+                            sh '''
+                                docker run --rm \
+                                    -v "$(pwd)":/app \
+                                    -v "$HOME/.m2":/root/.m2 \
+                                    -w /app \
+                                    maven:3.9.9-eclipse-temurin-17 \
+                                    mvn clean package -DskipTests
+                            '''
                         }
                     }
                 }
