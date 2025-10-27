@@ -17,40 +17,53 @@ pipeline {
             }
         }
         
-        stage('Build JARs with Maven') {
+        stage('Build All Services with Maven') {
             steps {
-                script {
-                    def services = SERVICES.split()
-                    services.each { service ->
-                        echo "📦 Compiling ${service}..."
-                        dir(service) {
-                            sh '''
-                                # Crear Dockerfile temporal para compilar
-                                cat > Dockerfile.build << 'EOF'
+                echo "📦 Compiling ALL services (including parent POM)..."
+                sh '''
+                    # Crear Dockerfile que compile TODO desde la raíz
+                    cat > Dockerfile.build << 'EOF'
 FROM maven:3.9.9-eclipse-temurin-17
 WORKDIR /build
-COPY . .
-RUN mvn clean package -DskipTests
+COPY pom.xml .
+COPY .mvn .mvn
+COPY mvnw .
+COPY mvnw.cmd .
+COPY product-service product-service
+COPY order-service order-service
+COPY payment-service payment-service
+COPY user-service user-service
+COPY shipping-service shipping-service
+COPY favourite-service favourite-service
+COPY service-discovery service-discovery
+COPY cloud-config cloud-config
+COPY api-gateway api-gateway
+COPY proxy-client proxy-client
+COPY src src
+RUN mvn clean package -DskipTests -pl product-service,order-service,payment-service,user-service,shipping-service,favourite-service
 EOF
-                                
-                                # Compilar
-                                docker build -f Dockerfile.build -t temp-build-${BUILD_NUMBER} .
-                                
-                                # Extraer el JAR compilado
-                                docker create --name temp-container-${BUILD_NUMBER} temp-build-${BUILD_NUMBER}
-                                docker cp temp-container-${BUILD_NUMBER}:/build/target ./
-                                docker rm temp-container-${BUILD_NUMBER}
-                                docker rmi temp-build-${BUILD_NUMBER}
-                                
-                                # Limpiar
-                                rm Dockerfile.build
-                                
-                                echo "✅ Compilado exitosamente"
-                                ls -la target/*.jar
-                            '''
-                        }
-                    }
-                }
+                    
+                    # Compilar TODO
+                    docker build -f Dockerfile.build -t temp-build-${BUILD_NUMBER} .
+                    
+                    # Extraer los JARs compilados de cada servicio
+                    docker create --name temp-container-${BUILD_NUMBER} temp-build-${BUILD_NUMBER}
+                    docker cp temp-container-${BUILD_NUMBER}:/build/product-service/target product-service/
+                    docker cp temp-container-${BUILD_NUMBER}:/build/order-service/target order-service/
+                    docker cp temp-container-${BUILD_NUMBER}:/build/payment-service/target payment-service/
+                    docker cp temp-container-${BUILD_NUMBER}:/build/user-service/target user-service/
+                    docker cp temp-container-${BUILD_NUMBER}:/build/shipping-service/target shipping-service/
+                    docker cp temp-container-${BUILD_NUMBER}:/build/favourite-service/target favourite-service/
+                    
+                    # Limpiar
+                    docker rm temp-container-${BUILD_NUMBER}
+                    docker rmi temp-build-${BUILD_NUMBER}
+                    rm Dockerfile.build
+                    
+                    echo "✅ Todos los servicios compilados exitosamente"
+                    ls -la product-service/target/*.jar
+                    ls -la order-service/target/*.jar
+                '''
             }
         }
         
@@ -88,7 +101,7 @@ EOF
             sh 'docker logout || true'
         }
         success {
-            echo "✅ ¡ÉXITO COMPLETO! 🎉🎉🎉"
+            echo "✅ ¡ÉXITO TOTAL! 🎉🎉🎉"
             echo ""
             echo "📦 Imágenes subidas a Docker Hub:"
             script {
@@ -98,6 +111,8 @@ EOF
                     echo "   ✓ ${DOCKER_HUB_REPO}/${service}:dev-latest"
                 }
             }
+            echo ""
+            echo "🔗 Ver en: https://hub.docker.com/u/${DOCKER_HUB_REPO}"
         }
         failure {
             echo "❌ Build falló"
