@@ -1,5 +1,6 @@
 package com.selimhorri.app;
 
+import com.selimhorri.app.domain.PaymentStatus;
 import com.selimhorri.app.dto.PaymentDto;
 import com.selimhorri.app.repository.PaymentRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -9,15 +10,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.math.BigDecimal;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Payment Service Application Tests
  * 
  * Incluye:
- * - Pruebas E2E de flujo de pagos
+ * - Pruebas de flujo de pagos
  * - Pruebas de contexto de Spring Boot
  * 
  * @author Test Suite
@@ -41,154 +40,161 @@ class PaymentServiceApplicationTests {
 	}
 
 	// ========================================
-	// PRUEBAS END-TO-END
+	// PRUEBAS DE PAGOS
 	// ========================================
 
 	/**
-	 * E2E-PAY-001: Validar procesamiento de pago con tarjeta
+	 * IT-PAY-001: Validar creación de pago pendiente
 	 */
 	@Test
-	@DisplayName("E2E-PAY-001: Should process credit card payment successfully")
-	void testCreditCardPaymentProcessing() {
+	@DisplayName("IT-PAY-001: Should create payment with NOT_STARTED status")
+	void testCreatePendingPayment() {
 		// Arrange
-		PaymentDto payment = new PaymentDto();
-		payment.setOrderId(1);
-		payment.setAmount(new BigDecimal("199.99"));
-		payment.setPaymentMethod("CREDIT_CARD");
-		payment.setIsPayed(false);
-		
-		// Assert - Datos válidos
-		assertNotNull(payment.getOrderId(), "Order ID should not be null");
-		assertNotNull(payment.getAmount(), "Payment amount should not be null");
-		assertTrue(payment.getAmount().compareTo(BigDecimal.ZERO) > 0,
-			"Payment amount should be positive");
-		assertEquals("CREDIT_CARD", payment.getPaymentMethod(),
-			"Payment method should be CREDIT_CARD");
-		assertFalse(payment.getIsPayed(),
-			"Payment should initially be unpaid");
-	}
-
-	/**
-	 * E2E-PAY-002: Validar rechazo de pagos inválidos
-	 */
-	@Test
-	@DisplayName("E2E-PAY-002: Should reject invalid payments")
-	void testInvalidPaymentRejection() {
-		// Arrange - Pago con monto negativo
-		PaymentDto negativePayment = new PaymentDto();
-		negativePayment.setAmount(new BigDecimal("-50.00"));
-		
-		// Arrange - Pago sin método
-		PaymentDto paymentWithoutMethod = new PaymentDto();
-		paymentWithoutMethod.setAmount(new BigDecimal("100.00"));
-		paymentWithoutMethod.setPaymentMethod(null);
+		PaymentDto payment = PaymentDto.builder()
+			.paymentId(1)
+			.isPayed(false)
+			.paymentStatus(PaymentStatus.NOT_STARTED)
+			.build();
 		
 		// Assert
-		assertTrue(negativePayment.getAmount().compareTo(BigDecimal.ZERO) < 0,
-			"Negative payment amount should be detected");
-		assertNull(paymentWithoutMethod.getPaymentMethod(),
-			"Payment without method should be detected");
+		assertNotNull(payment.getPaymentId(), "Payment ID should not be null");
+		assertFalse(payment.getIsPayed(), "Payment should initially be unpaid");
+		assertEquals(PaymentStatus.NOT_STARTED, payment.getPaymentStatus(),
+			"Payment status should be NOT_STARTED");
 	}
 
 	/**
-	 * E2E-PAY-003: Validar confirmación de pago
+	 * IT-PAY-002: Validar transición de estados de pago
 	 */
 	@Test
-	@DisplayName("E2E-PAY-003: Should confirm payment successfully")
-	void testPaymentConfirmation() {
+	@DisplayName("IT-PAY-002: Should transition payment status correctly")
+	void testPaymentStatusTransition() {
 		// Arrange - Pago inicial
-		PaymentDto payment = new PaymentDto();
-		payment.setPaymentId(1);
-		payment.setOrderId(1);
-		payment.setAmount(new BigDecimal("99.99"));
-		payment.setIsPayed(false);
+		PaymentDto payment = PaymentDto.builder()
+			.paymentId(1)
+			.isPayed(false)
+			.paymentStatus(PaymentStatus.NOT_STARTED)
+			.build();
 		
-		// Act - Confirmar pago
+		// Act - Cambiar a IN_PROGRESS
+		payment.setPaymentStatus(PaymentStatus.IN_PROGRESS);
+		assertEquals(PaymentStatus.IN_PROGRESS, payment.getPaymentStatus(),
+			"Status should change to IN_PROGRESS");
+		
+		// Act - Completar pago
+		payment.setPaymentStatus(PaymentStatus.COMPLETED);
 		payment.setIsPayed(true);
 		
 		// Assert
+		assertEquals(PaymentStatus.COMPLETED, payment.getPaymentStatus(),
+			"Status should be COMPLETED");
 		assertTrue(payment.getIsPayed(),
-			"Payment should be marked as paid after confirmation");
+			"Payment should be marked as paid");
+	}
+
+	/**
+	 * IT-PAY-003: Validar pago completado
+	 */
+	@Test
+	@DisplayName("IT-PAY-003: Should mark payment as completed successfully")
+	void testCompletedPayment() {
+		// Arrange
+		PaymentDto payment = PaymentDto.builder()
+			.paymentId(1)
+			.isPayed(true)
+			.paymentStatus(PaymentStatus.COMPLETED)
+			.build();
+		
+		// Assert
+		assertTrue(payment.getIsPayed(),
+			"Completed payment should be marked as paid");
+		assertEquals(PaymentStatus.COMPLETED, payment.getPaymentStatus(),
+			"Payment status should be COMPLETED");
 		assertNotNull(payment.getPaymentId(),
 			"Payment should have valid ID");
 	}
 
 	/**
-	 * E2E-PAY-004: Validar métodos de pago soportados
+	 * IT-PAY-004: Validar estados de pago disponibles
 	 */
 	@Test
-	@DisplayName("E2E-PAY-004: Should support multiple payment methods")
-	void testSupportedPaymentMethods() {
-		// Arrange - Métodos soportados
-		String[] supportedMethods = {
-			"CREDIT_CARD",
-			"DEBIT_CARD",
-			"PAYPAL",
-			"BANK_TRANSFER",
-			"CASH_ON_DELIVERY"
-		};
+	@DisplayName("IT-PAY-004: Should have all payment statuses available")
+	void testAvailablePaymentStatuses() {
+		// Assert - Verificar todos los estados
+		PaymentStatus[] statuses = PaymentStatus.values();
 		
-		// Arrange - Pago con método válido
-		PaymentDto payment = new PaymentDto();
-		payment.setPaymentMethod("PAYPAL");
+		assertEquals(3, statuses.length,
+			"Should have exactly 3 payment statuses");
 		
-		// Assert - Verificar método soportado
-		boolean isSupported = false;
-		for (String method : supportedMethods) {
-			if (method.equals(payment.getPaymentMethod())) {
-				isSupported = true;
-				break;
-			}
+		boolean hasNotStarted = false;
+		boolean hasInProgress = false;
+		boolean hasCompleted = false;
+		
+		for (PaymentStatus status : statuses) {
+			if (status == PaymentStatus.NOT_STARTED) hasNotStarted = true;
+			if (status == PaymentStatus.IN_PROGRESS) hasInProgress = true;
+			if (status == PaymentStatus.COMPLETED) hasCompleted = true;
 		}
 		
-		assertTrue(isSupported,
-			"Payment method should be from supported list");
+		assertTrue(hasNotStarted, "Should have NOT_STARTED status");
+		assertTrue(hasInProgress, "Should have IN_PROGRESS status");
+		assertTrue(hasCompleted, "Should have COMPLETED status");
 	}
 
 	/**
-	 * E2E-PAY-005: Validar reembolsos
+	 * IT-PAY-005: Validar consistencia isPayed con status
 	 */
 	@Test
-	@DisplayName("E2E-PAY-005: Should process refunds correctly")
-	void testRefundProcessing() {
-		// Arrange - Pago original
-		PaymentDto originalPayment = new PaymentDto();
-		originalPayment.setAmount(new BigDecimal("150.00"));
-		originalPayment.setIsPayed(true);
+	@DisplayName("IT-PAY-005: Should maintain consistency between isPayed and status")
+	void testPaymentConsistency() {
+		// Arrange - Pago no iniciado
+		PaymentDto notStarted = PaymentDto.builder()
+			.isPayed(false)
+			.paymentStatus(PaymentStatus.NOT_STARTED)
+			.build();
 		
-		// Arrange - Reembolso
-		BigDecimal refundAmount = new BigDecimal("150.00");
+		// Arrange - Pago en progreso
+		PaymentDto inProgress = PaymentDto.builder()
+			.isPayed(false)
+			.paymentStatus(PaymentStatus.IN_PROGRESS)
+			.build();
 		
-		// Assert - Validar reembolso
-		assertTrue(originalPayment.getIsPayed(),
-			"Original payment should be paid before refund");
-		assertEquals(originalPayment.getAmount(), refundAmount,
-			"Refund amount should match original payment");
-		assertTrue(refundAmount.compareTo(BigDecimal.ZERO) > 0,
-			"Refund amount should be positive");
+		// Arrange - Pago completado
+		PaymentDto completed = PaymentDto.builder()
+			.isPayed(true)
+			.paymentStatus(PaymentStatus.COMPLETED)
+			.build();
+		
+		// Assert - Verificar consistencia
+		assertFalse(notStarted.getIsPayed(),
+			"NOT_STARTED payment should not be paid");
+		assertFalse(inProgress.getIsPayed(),
+			"IN_PROGRESS payment should not be paid yet");
+		assertTrue(completed.getIsPayed(),
+			"COMPLETED payment should be paid");
 	}
 
 	/**
-	 * E2E-PAY-006: Validar pagos parciales
+	 * IT-PAY-006: Validar builder pattern
 	 */
 	@Test
-	@DisplayName("E2E-PAY-006: Should handle partial payments")
-	void testPartialPayments() {
-		// Arrange
-		BigDecimal totalAmount = new BigDecimal("200.00");
-		BigDecimal firstPayment = new BigDecimal("100.00");
-		BigDecimal secondPayment = new BigDecimal("100.00");
-		
-		// Act - Sumar pagos parciales
-		BigDecimal totalPaid = firstPayment.add(secondPayment);
+	@DisplayName("IT-PAY-006: Should create payment using builder pattern")
+	void testPaymentBuilder() {
+		// Act
+		PaymentDto payment = PaymentDto.builder()
+			.paymentId(123)
+			.isPayed(false)
+			.paymentStatus(PaymentStatus.NOT_STARTED)
+			.build();
 		
 		// Assert
-		assertEquals(totalAmount, totalPaid,
-			"Sum of partial payments should equal total amount");
-		assertTrue(firstPayment.compareTo(totalAmount) < 0,
-			"First partial payment should be less than total");
-		assertTrue(totalPaid.compareTo(totalAmount) >= 0,
-			"Total paid should cover the full amount");
+		assertNotNull(payment, "Builder should create non-null payment");
+		assertEquals(123, payment.getPaymentId(),
+			"Builder should set paymentId correctly");
+		assertFalse(payment.getIsPayed(),
+			"Builder should set isPayed correctly");
+		assertEquals(PaymentStatus.NOT_STARTED, payment.getPaymentStatus(),
+			"Builder should set paymentStatus correctly");
 	}
 	
 	/**
