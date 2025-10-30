@@ -32,7 +32,7 @@ public class UserResource {
 	@GetMapping
 	public ResponseEntity<DtoCollectionResponse<UserDto>> findAll() {
 		log.info("*** UserDto List, controller; fetch all users *");
-		return ResponseEntity.ok(new DtoCollectionResponse<>(this.userService.findAll()));
+		return ResponseEntity.ok(new DtoCollectionResponse<UserDto>(this.userService.findAll()));
 	}
 	
 	@GetMapping("/{userId}")
