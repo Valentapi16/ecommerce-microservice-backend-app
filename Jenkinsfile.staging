@@ -21,6 +21,28 @@ pipeline {
             }
         }
         
+        stage('Clean Workspace & Maven Cache') {
+            steps {
+                echo '🧹 Limpiando workspace y caché de Maven...'
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            # Limpiar targets anteriores
+                            find . -type d -name "target" -exec rm -rf {} + || true
+                            # Limpiar caché de Lombok en Maven
+                            rm -rf ~/.m2/repository/org/projectlombok/lombok || true
+                        '''
+                    } else {
+                        bat '''
+                            @echo off
+                            REM Limpiar targets anteriores
+                            for /d /r . %%d in (target) do @if exist "%%d" rd /s /q "%%d" 2>nul
+                        '''
+                    }
+                }
+            }
+        }
+        
         stage('Build All Services with Maven') {
             steps {
                 echo '🔨 Compilando todos los microservicios...'
