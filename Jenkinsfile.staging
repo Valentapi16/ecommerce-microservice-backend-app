@@ -243,35 +243,41 @@
                 script {
                     withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
                         if (isUnix()) {
-                            sh '''
-                                # Determinar qué kubectl usar
+                            sh """
+                                # Determinar qué kubectl usar con ruta absoluta
+                                echo "📍 Buscando kubectl..."
+                                ls -la ${WORKSPACE}/ | grep kubectl || echo "No kubectl en workspace"
+                                
                                 if [ -f "${WORKSPACE}/kubectl" ]; then
                                     KUBECTL="${WORKSPACE}/kubectl"
-                                    echo "Usando kubectl del workspace"
-                                else
+                                    echo "✅ Usando kubectl del workspace: \$KUBECTL"
+                                elif command -v kubectl >/dev/null 2>&1; then
                                     KUBECTL="kubectl"
-                                    echo "Usando kubectl del sistema"
+                                    echo "✅ Usando kubectl del sistema"
+                                else
+                                    echo "❌ ERROR: kubectl no encontrado"
+                                    exit 1
                                 fi
                                 
                                 # Configurar KUBECONFIG
-                                export KUBECONFIG=$KUBECONFIG
+                                export KUBECONFIG=\$KUBECONFIG
                                 
                                 echo "✅ Verificando conexión con Kubernetes..."
-                                $KUBECTL version --client || echo "⚠️  No se pudo obtener versión"
-                                $KUBECTL cluster-info || echo "⚠️  No se pudo conectar al cluster"
+                                \$KUBECTL version --client || echo "⚠️  No se pudo obtener versión"
+                                \$KUBECTL cluster-info || echo "⚠️  No se pudo conectar al cluster"
                                 
                                 # Verificar si el namespace ya existe
-                                if $KUBECTL get namespace ''' + env.NAMESPACE + ''' 2>/dev/null; then
-                                    echo "✅ Namespace ''' + env.NAMESPACE + ''' ya existe"
+                                if \$KUBECTL get namespace ${env.NAMESPACE} 2>/dev/null; then
+                                    echo "✅ Namespace ${env.NAMESPACE} ya existe"
                                 else
-                                    echo "📝 Creando namespace ''' + env.NAMESPACE + '''..."
-                                    $KUBECTL create namespace ''' + env.NAMESPACE + ''' || echo "⚠️  No se pudo crear"
+                                    echo "📝 Creando namespace ${env.NAMESPACE}..."
+                                    \$KUBECTL create namespace ${env.NAMESPACE} || echo "⚠️  No se pudo crear"
                                 fi
                                 
                                 # Listar namespaces
                                 echo "📋 Namespaces disponibles:"
-                                $KUBECTL get namespaces | grep -E 'NAME|''' + env.NAMESPACE + '''|default' || $KUBECTL get namespaces
-                            '''
+                                \$KUBECTL get namespaces | grep -E 'NAME|${env.NAMESPACE}|default' || \$KUBECTL get namespaces
+                            """
                         } else {
                             bat """
                                 @echo off
