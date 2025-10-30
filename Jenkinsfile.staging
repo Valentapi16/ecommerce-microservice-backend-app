@@ -84,9 +84,15 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
                         if (isUnix()) {
-                            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                            sh '''
+                                USERNAME=$(echo "$DOCKER_USER" | tr '[:upper:]' '[:lower:]')
+                                echo "$DOCKER_PASS" | docker login -u "$USERNAME" --password-stdin
+                            '''
                         } else {
-                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                            bat '''
+                                @echo off
+                                echo %DOCKER_PASS% | docker login -u valentapi16 --password-stdin
+                            '''
                         }
                     }
                 }
