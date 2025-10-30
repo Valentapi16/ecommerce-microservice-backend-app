@@ -578,6 +578,76 @@ Test OK (HTTP Code: 404, {"httpStatus":"NOT_FOUND","message":"Product Id: 14 not
 Test OK (actual value: product name C)
 Test OK (actual value: CLOSED)
 Test OK (actual value: CLOSED_TO_OPEN)
+
+---
+
+## 📊 Testing Reports & Performance Analysis
+
+This project includes comprehensive testing capabilities with visual reporting:
+
+### 📋 Unit Testing Reports
+
+Generate professional HTML reports for all unit tests:
+
+```bash
+# Generate test reports
+./generate-test-reports.ps1
+
+# Or manually:
+mvn clean test site
+start target/site/surefire-report.html
+```
+
+**Features:**
+- ✅ 31+ unit tests across all services
+- 📊 Aggregated and per-service reports
+- ⏱️ Execution time metrics
+- 📈 Success rate analysis
+
+📁 **Reports Location:** `target/site/surefire-report.html`
+
+---
+
+### 🐝 Performance Testing with Locust
+
+Test system performance under load with Locust:
+
+```bash
+cd performance-tests
+
+# Start Locust UI
+./start-locust.ps1
+
+# Or manually:
+locust -f locustfile.py --host=http://localhost:8080
+# Open browser: http://localhost:8089
+```
+
+**Test Scenarios Included:**
+1. 🛒 Complete E-commerce User Journey
+2. 🔍 Product Browsing & Search
+3. ❤️ Favourites Management
+4. 📦 Order Processing Flow
+
+**Metrics Tracked:**
+- Requests per second (RPS)
+- Response time percentiles (p50, p95, p99)
+- Failure rates
+- Concurrent users handling
+- Real-time performance graphs
+
+📁 **Reports:** `performance-tests/reports/locust_report.html`
+
+---
+
+### 📚 Complete Testing Documentation
+
+For detailed instructions on running tests and generating reports, see:
+- 📖 [TESTING_REPORTS.md](TESTING_REPORTS.md) - Complete guide with screenshots
+- 📖 [TESTS_SUMMARY.md](TESTS_SUMMARY.md) - Test coverage summary
+- 📖 [QUICK_START_TESTS.md](QUICK_START_TESTS.md) - Quick start guide
+
+---
 Test OK (actual value: OPEN_TO_HALF_OPEN)
 Test OK (actual value: HALF_OPEN_TO_CLOSED)
 End, all tests OK: Tue, May 31, 2020 2:10:09 AM
@@ -661,9 +731,34 @@ locust -f locustfile.py --host=http://localhost:8080
 
 For detailed information about the testing suite:
 
+- **[TESTING-GUIDE.md](TESTING-GUIDE.md)** - 🔥 **Complete guide for reports and performance testing**
 - **[TESTS_SUMMARY.md](TESTS_SUMMARY.md)** - Complete overview of all 40+ tests
 - **[QUICK_START_TESTS.md](QUICK_START_TESTS.md)** - Quick start guide for running tests
 - **[performance-tests/README.md](performance-tests/README.md)** - Locust performance testing guide
+
+### 📊 Generate Test Reports & Performance Metrics
+
+**Generate HTML reports of all tests:**
+```powershell
+.\generate-test-reports.ps1
+```
+This will execute all 31 tests and generate professional HTML reports showing:
+- ✅ Tests passed/failed
+- ⏱️ Execution time
+- 📊 Coverage details
+- Reports location: `target/site/surefire-report.html`
+
+**Run performance tests with Locust:**
+```powershell
+.\run-performance-tests.ps1
+```
+This will:
+- Start Locust on http://localhost:8089 (avoiding Jenkins port 8080)
+- Let you select which service to test
+- Show real-time metrics (requests/s, response time, success rate)
+- Generate interactive charts and statistics
+
+> 💡 **For Presentations**: These scripts generate professional reports perfect for demonstrating your testing coverage and system performance!
 
 ### 🎯 Test Scenarios Covered
 

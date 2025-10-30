@@ -9,6 +9,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -94,16 +96,19 @@ class FavouriteServiceApplicationTests {
 	@DisplayName("IT-FAV-003: Should handle favourite removal correctly")
 	void testFavouriteRemoval() {
 		// Arrange
-		FavouriteDto favourite = new FavouriteDto();
-		favourite.setFavouriteId(1);
-		favourite.setUserId(1);
-		favourite.setProductId(101);
+		FavouriteDto favourite = FavouriteDto.builder()
+			.userId(1)
+			.productId(101)
+			.likeDate(LocalDateTime.now())
+			.build();
 		
-		// Assert - Favorito tiene ID válido
-		assertNotNull(favourite.getFavouriteId(), 
-			"Favourite ID should exist before removal");
-		assertTrue(favourite.getFavouriteId() > 0, 
-			"Favourite ID should be positive");
+		// Assert - Favorito tiene datos válidos
+		assertNotNull(favourite.getUserId(), 
+			"User ID should exist before removal");
+		assertNotNull(favourite.getProductId(), 
+			"Product ID should exist before removal");
+		assertTrue(favourite.getUserId() > 0 && favourite.getProductId() > 0, 
+			"IDs should be positive");
 	}
 	
 	/**
