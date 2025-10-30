@@ -8,9 +8,9 @@ pipeline {
         ENVIRONMENT = 'staging'
         NAMESPACE = 'ecommerce-staging'
         
-        // Servicios principales a desplegar (punto 4 del proyecto)
-        INFRASTRUCTURE_SERVICES = 'service-discovery,cloud-config,api-gateway'
-        BUSINESS_SERVICES = 'user-service,product-service,payment-service'
+        // Servicios principales a desplegar (3 servicios de negocio más relevantes)
+        INFRASTRUCTURE_SERVICES = 'service-discovery'
+        BUSINESS_SERVICES = 'user-service,product-service,order-service'
         
         // Optimización: Más memoria para evitar OOM (Out of Memory)
         MAVEN_OPTS = '-Xmx2048m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Djava.awt.headless=true'
@@ -26,32 +26,24 @@ pipeline {
         
         stage('Build & Test Services') {
             steps {
-                echo '🔨 Compilando y probando microservicios...'
+                echo '🔨 Compilando 4 microservicios (service-discovery + user, product, order)...'
                 script {
-                    // Compilar servicios uno por uno para evitar OOM
-                    def services = ['service-discovery', 'cloud-config', 'api-gateway', 'user-service', 'product-service', 'payment-service']
-                    
-                    services.each { service ->
-                        echo "Building ${service}..."
-                        if (isUnix()) {
-                            sh """
-                                mvn clean package \
-                                    -pl ${service} \
-                                    -DskipTests=false \
-                                    -Dspring.cloud.config.enabled=false \
-                                    -Dspring.cloud.config.import-check.enabled=false \
-                                    --batch-mode
-                            """
-                        } else {
-                            bat """
-                                mvn clean package ^
-                                    -pl ${service} ^
-                                    -DskipTests=false ^
-                                    -Dspring.cloud.config.enabled=false ^
-                                    -Dspring.cloud.config.import-check.enabled=false ^
-                                    --batch-mode
-                            """
-                        }
+                    if (isUnix()) {
+                        sh '''
+                            mvn clean package \
+                                -pl service-discovery,user-service,product-service,order-service \
+                                -Dspring.cloud.config.enabled=false \
+                                -Dspring.cloud.config.import-check.enabled=false \
+                                --batch-mode
+                        '''
+                    } else {
+                        bat '''
+                            mvn clean package ^
+                                -pl service-discovery,user-service,product-service,order-service ^
+                                -Dspring.cloud.config.enabled=false ^
+                                -Dspring.cloud.config.import-check.enabled=false ^
+                                --batch-mode
+                        '''
                     }
                 }
             }
