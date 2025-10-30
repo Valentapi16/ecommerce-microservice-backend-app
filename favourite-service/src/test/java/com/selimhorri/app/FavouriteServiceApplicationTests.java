@@ -1,12 +1,8 @@
 package com.selimhorri.app;
 
 import com.selimhorri.app.dto.FavouriteDto;
-import com.selimhorri.app.repository.FavouriteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDateTime;
@@ -24,12 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * @since 2025-10-29
  */
 @SpringBootTest
-@ExtendWith(MockitoExtension.class)
 @DisplayName("FavouriteService - Application Tests")
 class FavouriteServiceApplicationTests {
-
-	@Mock
-	private FavouriteRepository favouriteRepository;
 
 	/**
 	 * TEST 1: Verificar que el contexto de Spring Boot carga correctamente
@@ -51,9 +43,11 @@ class FavouriteServiceApplicationTests {
 	@DisplayName("IT-FAV-001: Should validate user-product relationship in favourites")
 	void testUserProductRelationship() {
 		// Arrange
-		FavouriteDto favourite = new FavouriteDto();
-		favourite.setUserId(1);
-		favourite.setProductId(101);
+		FavouriteDto favourite = FavouriteDto.builder()
+			.userId(1)
+			.productId(101)
+			.likeDate(LocalDateTime.now())
+			.build();
 		
 		// Assert - IDs válidos
 		assertNotNull(favourite.getUserId(), 
@@ -73,13 +67,17 @@ class FavouriteServiceApplicationTests {
 	@DisplayName("IT-FAV-002: Should prevent duplicate favourites")
 	void testDuplicateFavourites() {
 		// Arrange - Dos favoritos con mismos IDs
-		FavouriteDto fav1 = new FavouriteDto();
-		fav1.setUserId(1);
-		fav1.setProductId(101);
+		FavouriteDto fav1 = FavouriteDto.builder()
+			.userId(1)
+			.productId(101)
+			.likeDate(LocalDateTime.now())
+			.build();
 		
-		FavouriteDto fav2 = new FavouriteDto();
-		fav2.setUserId(1);
-		fav2.setProductId(101);
+		FavouriteDto fav2 = FavouriteDto.builder()
+			.userId(1)
+			.productId(101)
+			.likeDate(LocalDateTime.now())
+			.build();
 		
 		// Assert - Detectar duplicados
 		boolean isDuplicate = fav1.getUserId().equals(fav2.getUserId()) 

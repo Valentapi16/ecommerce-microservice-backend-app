@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: ecommerce-staging
+  labels:
+    app: payment-service
+    tier: business
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8400
+    targetPort: 8400
+    protocol: TCP
+    name: http
+  selector:
+    app: payment-service
