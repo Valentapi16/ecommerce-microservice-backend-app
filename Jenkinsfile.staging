@@ -1,4 +1,4 @@
-pipeline {
+    pipeline {
     agent any
     
     environment {
@@ -11,6 +11,9 @@ pipeline {
         // Servicios a desplegar
         INFRASTRUCTURE_SERVICES = 'service-discovery,cloud-config,api-gateway'
         BUSINESS_SERVICES = 'user-service,product-service,payment-service'
+        
+        // Kubectl path (se configurará en Setup Kubernetes CLI)
+        KUBECTL_CMD = ''
     }
     
     stages {
@@ -159,28 +162,63 @@ pipeline {
         
         stage('Setup Kubernetes CLI') {
             steps {
-                echo '🔧 Instalando kubectl...'
+                echo '🔧 Verificando/Instalando kubectl...'
                 script {
                     if (isUnix()) {
-                        sh """
-                            # Verificar si kubectl ya está instalado
-                            if ! command -v kubectl &> /dev/null; then
-                                echo "📥 kubectl no encontrado. Instalando..."
+                        def kubectlInstalled = sh(
+                            script: '''
+                                set +e  # No detener en error
                                 
-                                # Descargar kubectl
-                                curl -LO "https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                                # Verificar si kubectl ya está en workspace
+                                if [ -f "${WORKSPACE}/kubectl" ]; then
+                                    echo "workspace"
+                                    exit 0
+                                fi
                                 
-                                # Dar permisos de ejecución
+                                # Verificar si kubectl está en el sistema
+                                if command -v kubectl &> /dev/null; then
+                                    echo "system"
+                                    exit 0
+                                fi
+                                
+                                # No está instalado
+                                echo "none"
+                                exit 0
+                            ''',
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "Estado de kubectl: ${kubectlInstalled}"
+                        
+                        if (kubectlInstalled == 'none') {
+                            sh '''
+                                echo "📥 Descargando kubectl..."
+                                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                                 chmod +x kubectl
-                                
-                                # Mover a un directorio en el PATH
-                                sudo mv kubectl /usr/local/bin/ || mv kubectl \${WORKSPACE}/kubectl
-                                
-                                echo "✅ kubectl instalado correctamente"
-                            else
-                                echo "✅ kubectl ya está instalado: \$(kubectl version --client --short 2>/dev/null || kubectl version --client)"
-                            fi
-                        """
+                                echo "✅ kubectl descargado en ${WORKSPACE}/kubectl"
+                                ./kubectl version --client || echo "Versión no disponible"
+                            '''
+                        } else if (kubectlInstalled == 'workspace') {
+                            sh '''
+                                chmod +x ${WORKSPACE}/kubectl
+                                echo "✅ kubectl encontrado en workspace"
+                                ${WORKSPACE}/kubectl version --client || echo "Versión no disponible"
+                            '''
+                        } else {
+                            sh '''
+                                echo "✅ kubectl del sistema será usado"
+                                kubectl version --client || echo "Versión no disponible"
+                            '''
+                        }
+                        
+                        // Guardar el comando a usar
+                        if (kubectlInstalled == 'workspace' || kubectlInstalled == 'none') {
+                            env.KUBECTL_CMD = '${WORKSPACE}/kubectl'
+                        } else {
+                            env.KUBECTL_CMD = 'kubectl'
+                        }
+                        
+                        echo "✅ KUBECTL_CMD configurado: ${env.KUBECTL_CMD}"
                     } else {
                         bat """
                             where kubectl >nul 2>&1
@@ -203,27 +241,32 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
-                            sh """
-                                # Agregar kubectl al PATH si está en el workspace
-                                export PATH=\${WORKSPACE}:\${PATH}
+                            sh '''
+                                # Determinar qué kubectl usar
+                                if [ -f "${WORKSPACE}/kubectl" ]; then
+                                    KUBECTL="${WORKSPACE}/kubectl"
+                                    echo "Usando kubectl del workspace"
+                                else
+                                    KUBECTL="kubectl"
+                                    echo "Usando kubectl del sistema"
+                                fi
                                 
-                                # El token ya está configurado en el contexto de kubectl por Jenkins
-                                # Solo verificamos la conexión
                                 echo "✅ Verificando conexión con Kubernetes..."
-                                kubectl cluster-info || echo "⚠️  No se pudo conectar al cluster"
+                                $KUBECTL version --client || echo "⚠️  No se pudo obtener versión"
+                                $KUBECTL cluster-info || echo "⚠️  No se pudo conectar al cluster"
                                 
                                 # Verificar si el namespace ya existe
-                                if kubectl get namespace ${NAMESPACE} 2>/dev/null; then
-                                    echo "✅ Namespace ${NAMESPACE} ya existe"
+                                if $KUBECTL get namespace ''' + env.NAMESPACE + ''' 2>/dev/null; then
+                                    echo "✅ Namespace ''' + env.NAMESPACE + ''' ya existe"
                                 else
-                                    echo "📝 Creando namespace ${NAMESPACE}..."
-                                    kubectl create namespace ${NAMESPACE} || echo "⚠️  No se pudo crear, puede que ya exista"
+                                    echo "📝 Creando namespace ''' + env.NAMESPACE + '''..."
+                                    $KUBECTL create namespace ''' + env.NAMESPACE + ''' || echo "⚠️  No se pudo crear"
                                 fi
                                 
                                 # Listar namespaces
                                 echo "📋 Namespaces disponibles:"
-                                kubectl get namespaces | grep -E 'NAME|${NAMESPACE}|default'
-                            """
+                                $KUBECTL get namespaces | grep -E 'NAME|''' + env.NAMESPACE + '''|default' || $KUBECTL get namespaces
+                            '''
                         } else {
                             bat """
                                 @echo off
