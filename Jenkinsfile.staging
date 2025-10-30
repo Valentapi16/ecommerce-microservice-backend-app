@@ -12,8 +12,8 @@ pipeline {
         INFRASTRUCTURE_SERVICES = 'service-discovery,cloud-config,api-gateway'
         BUSINESS_SERVICES = 'user-service,product-service,payment-service'
         
-        // Optimización: Usar Maven daemon para builds más rápidos
-        MAVEN_OPTS = '-Xmx1024m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
+        // Optimización: Más memoria para evitar OOM (Out of Memory)
+        MAVEN_OPTS = '-Xmx2048m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Djava.awt.headless=true'
     }
     
     stages {
@@ -26,22 +26,32 @@ pipeline {
         
         stage('Build & Test Services') {
             steps {
-                echo '🔨 Compilando y probando microservicios (solo los 6 principales)...'
+                echo '🔨 Compilando y probando microservicios...'
                 script {
-                    if (isUnix()) {
-                        sh '''
-                            # Build y test en un solo comando para ser más rápido
-                            mvn clean package -T 2C \
-                                -pl service-discovery,cloud-config,api-gateway,user-service,product-service,payment-service \
-                                --batch-mode \
-                                --quiet
-                        '''
-                    } else {
-                        bat '''
-                            mvn clean package -T 2C ^
-                                -pl service-discovery,cloud-config,api-gateway,user-service,product-service,payment-service ^
-                                --batch-mode
-                        '''
+                    // Compilar servicios uno por uno para evitar OOM
+                    def services = ['service-discovery', 'cloud-config', 'api-gateway', 'user-service', 'product-service', 'payment-service']
+                    
+                    services.each { service ->
+                        echo "Building ${service}..."
+                        if (isUnix()) {
+                            sh """
+                                mvn clean package \
+                                    -pl ${service} \
+                                    -DskipTests=false \
+                                    -Dspring.cloud.config.enabled=false \
+                                    -Dspring.cloud.config.import-check.enabled=false \
+                                    --batch-mode
+                            """
+                        } else {
+                            bat """
+                                mvn clean package ^
+                                    -pl ${service} ^
+                                    -DskipTests=false ^
+                                    -Dspring.cloud.config.enabled=false ^
+                                    -Dspring.cloud.config.import-check.enabled=false ^
+                                    --batch-mode
+                            """
+                        }
                     }
                 }
             }
