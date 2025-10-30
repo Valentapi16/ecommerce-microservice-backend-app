@@ -26,9 +26,9 @@ pipeline {
                 echo '🔨 Compilando todos los microservicios...'
                 script {
                     if (isUnix()) {
-                        sh 'mvn clean package -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
+                        sh 'mvn clean package -U -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
                     } else {
-                        bat 'mvn clean package -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
+                        bat 'mvn clean package -U -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
                     }
                 }
             }
