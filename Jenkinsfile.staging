@@ -1,4 +1,4 @@
-    pipeline {
+pipeline {
     agent any
     
     environment {
@@ -8,12 +8,12 @@
         ENVIRONMENT = 'staging'
         NAMESPACE = 'ecommerce-staging'
         
-        // Servicios a desplegar
+        // Servicios principales a desplegar (punto 4 del proyecto)
         INFRASTRUCTURE_SERVICES = 'service-discovery,cloud-config,api-gateway'
         BUSINESS_SERVICES = 'user-service,product-service,payment-service'
         
-        // Kubectl path (se configurará en Setup Kubernetes CLI)
-        KUBECTL_CMD = ''
+        // Optimización: Usar Maven daemon para builds más rápidos
+        MAVEN_OPTS = '-Xmx1024m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
     }
     
     stages {
@@ -24,49 +24,24 @@
             }
         }
         
-        stage('Clean Workspace & Maven Cache') {
+        stage('Build & Test Services') {
             steps {
-                echo '🧹 Limpiando workspace y caché de Maven...'
+                echo '🔨 Compilando y probando microservicios (solo los 6 principales)...'
                 script {
                     if (isUnix()) {
                         sh '''
-                            # Limpiar targets anteriores
-                            find . -type d -name "target" -exec rm -rf {} + || true
-                            # Limpiar caché de Lombok en Maven
-                            rm -rf ~/.m2/repository/org/projectlombok/lombok || true
+                            # Build y test en un solo comando para ser más rápido
+                            mvn clean package -T 2C \
+                                -pl service-discovery,cloud-config,api-gateway,user-service,product-service,payment-service \
+                                --batch-mode \
+                                --quiet
                         '''
                     } else {
                         bat '''
-                            @echo off
-                            REM Limpiar targets anteriores
-                            for /d /r . %%d in (target) do @if exist "%%d" rd /s /q "%%d" 2>nul
+                            mvn clean package -T 2C ^
+                                -pl service-discovery,cloud-config,api-gateway,user-service,product-service,payment-service ^
+                                --batch-mode
                         '''
-                    }
-                }
-            }
-        }
-        
-        stage('Build All Services with Maven') {
-            steps {
-                echo '🔨 Compilando todos los microservicios...'
-                script {
-                    if (isUnix()) {
-                        sh 'mvn clean package -U -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
-                    } else {
-                        bat 'mvn clean package -U -DskipTests -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
-                    }
-                }
-            }
-        }
-        
-        stage('Run Tests') {
-            steps {
-                echo '🧪 Ejecutando suite de pruebas...'
-                script {
-                    if (isUnix()) {
-                        sh 'mvn test -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
-                    } else {
-                        bat 'mvn test -pl service-discovery,cloud-config,api-gateway,product-service,user-service,payment-service,order-service,shipping-service,favourite-service'
                     }
                 }
             }
@@ -79,7 +54,7 @@
         
         stage('Docker Login') {
             steps {
-                echo '🔐 Autenticando con Docker Hub...'
+                echo '🔐 Autenticando en Docker Hub...'
                 script {
                     withCredentials([usernamePassword(
                         credentialsId: "${DOCKER_CREDENTIALS_ID}",
