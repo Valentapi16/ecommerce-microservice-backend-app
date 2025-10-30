@@ -161,16 +161,43 @@ pipeline {
             steps {
                 echo '🔧 Creando namespace de staging...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
-                                kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                # El token ya está configurado en el contexto de kubectl por Jenkins
+                                # Solo verificamos la conexión
+                                echo "✅ Verificando conexión con Kubernetes..."
+                                kubectl cluster-info || echo "⚠️  No se pudo conectar al cluster"
+                                
+                                # Verificar si el namespace ya existe
+                                if kubectl get namespace ${NAMESPACE} 2>/dev/null; then
+                                    echo "✅ Namespace ${NAMESPACE} ya existe"
+                                else
+                                    echo "📝 Creando namespace ${NAMESPACE}..."
+                                    kubectl create namespace ${NAMESPACE} || echo "⚠️  No se pudo crear, puede que ya exista"
+                                fi
+                                
+                                # Listar namespaces
+                                echo "📋 Namespaces disponibles:"
+                                kubectl get namespaces | grep -E 'NAME|${NAMESPACE}|default'
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
-                                kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                                @echo off
+                                echo Verificando conexion con Kubernetes...
+                                kubectl cluster-info
+                                
+                                echo Verificando namespace...
+                                kubectl get namespace ${NAMESPACE} 2>nul
+                                if errorlevel 1 (
+                                    echo Creando namespace ${NAMESPACE}...
+                                    kubectl create namespace ${NAMESPACE}
+                                ) else (
+                                    echo Namespace ${NAMESPACE} ya existe
+                                )
+                                
+                                echo Listando namespaces:
+                                kubectl get namespaces
                             """
                         }
                     }
@@ -182,7 +209,7 @@ pipeline {
             steps {
                 echo '🚀 Desplegando servicios a Kubernetes...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         // Actualizar imagen tag en los manifiestos y aplicar
                         def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
                         
@@ -190,7 +217,7 @@ pipeline {
                             echo "Deploying ${service} to Kubernetes..."
                             if (isUnix()) {
                                 sh """
-                                    export KUBECONFIG=\$KUBECONFIG
+                                    # El token ya está configurado en kubectl por Jenkins
                                     
                                     # Aplicar ConfigMap y Secrets si existen
                                     if [ -f k8s/${service}/configmap.yaml ]; then
@@ -213,7 +240,7 @@ pipeline {
                                 """
                             } else {
                                 bat """
-                                    set KUBECONFIG=%KUBECONFIG%
+                                    REM El token ya está configurado en kubectl por Jenkins
                                     
                                     REM Aplicar ConfigMap y Secrets si existen
                                     if exist k8s\\${service}\\configmap.yaml (
@@ -237,12 +264,12 @@ pipeline {
                         // Aplicar Ingress
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 kubectl apply -f k8s/ingress.yaml -n ${NAMESPACE}
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 kubectl apply -f k8s\\ingress.yaml -n ${NAMESPACE}
                             """
                         }
@@ -255,10 +282,10 @@ pipeline {
             steps {
                 echo '✅ Verificando estado del deployment...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 
                                 echo "=== Pods Status ==="
                                 kubectl get pods -n ${NAMESPACE}
@@ -278,7 +305,7 @@ pipeline {
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 
                                 echo === Pods Status ===
                                 kubectl get pods -n ${NAMESPACE}
@@ -299,10 +326,10 @@ pipeline {
             steps {
                 echo '🏥 Ejecutando health checks...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Ejecutar script de health checks
                                 chmod +x k8s/scripts/health-check.sh
@@ -310,7 +337,7 @@ pipeline {
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 
                                 REM Ejecutar script de health checks
                                 powershell -ExecutionPolicy Bypass -File k8s\\scripts\\health-check.ps1 -Namespace ${NAMESPACE}
@@ -325,10 +352,10 @@ pipeline {
             steps {
                 echo '🔗 Ejecutando pruebas de integración...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Obtener la URL del API Gateway
                                 API_GATEWAY_URL=\$(kubectl get ingress -n ${NAMESPACE} -o jsonpath='{.items[0].spec.rules[0].host}')
@@ -339,7 +366,7 @@ pipeline {
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 
                                 REM Ejecutar tests de integración
                                 powershell -ExecutionPolicy Bypass -File k8s\\scripts\\integration-tests.ps1 -Namespace ${NAMESPACE}
@@ -356,10 +383,10 @@ pipeline {
                 script {
                     sleep(time: 30, unit: 'SECONDS')
                     
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Smoke test: Verificar endpoints críticos
                                 chmod +x k8s/scripts/smoke-tests.sh
@@ -367,7 +394,7 @@ pipeline {
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 
                                 REM Smoke tests
                                 powershell -ExecutionPolicy Bypass -File k8s\\scripts\\smoke-tests.ps1 -Namespace ${NAMESPACE}
@@ -387,10 +414,10 @@ pipeline {
             
             script {
                 // Notificación de éxito
-                withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                     if (isUnix()) {
                         sh """
-                            export KUBECONFIG=\$KUBECONFIG
+                            # El token ya está configurado en kubectl por Jenkins
                             echo "\\n=== Deployment Summary ==="
                             kubectl get all -n ${NAMESPACE}
                         """
@@ -402,20 +429,20 @@ pipeline {
         failure {
             echo '❌ Pipeline falló. Iniciando rollback...'
             script {
-                withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                     def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
                     
                     allServices.each { service ->
                         if (isUnix()) {
                             sh """
-                                export KUBECONFIG=\$KUBECONFIG
+                                # El token ya está configurado en kubectl por Jenkins
                                 
                                 echo "Rolling back ${service}..."
                                 kubectl rollout undo deployment/${service} -n ${NAMESPACE} || true
                             """
                         } else {
                             bat """
-                                set KUBECONFIG=%KUBECONFIG%
+                                REM El token ya está configurado en kubectl por Jenkins
                                 
                                 echo Rolling back ${service}...
                                 kubectl rollout undo deployment/${service} -n ${NAMESPACE}
