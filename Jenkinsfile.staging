@@ -4,7 +4,7 @@
     environment {
         DOCKER_HUB_REPO = 'valentapi16'
         DOCKER_CREDENTIALS_ID = 'dockerhub'
-        KUBECONFIG_CREDENTIALS_ID = 'k8s-token'
+        KUBECONFIG_CREDENTIALS_ID = 'k8s-kubeconfig'
         ENVIRONMENT = 'staging'
         NAMESPACE = 'ecommerce-staging'
         
@@ -239,7 +239,7 @@
             steps {
                 echo '🔧 Creando namespace de staging...'
                 script {
-                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
+                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
                         if (isUnix()) {
                             sh '''
                                 # Determinar qué kubectl usar
@@ -250,6 +250,9 @@
                                     KUBECTL="kubectl"
                                     echo "Usando kubectl del sistema"
                                 fi
+                                
+                                # Configurar KUBECONFIG
+                                export KUBECONFIG=$KUBECONFIG
                                 
                                 echo "✅ Verificando conexión con Kubernetes..."
                                 $KUBECTL version --client || echo "⚠️  No se pudo obtener versión"
