@@ -55,16 +55,16 @@ class ShippingServiceApplicationTests {
 		
 		BigDecimal lightShippingCost = baseRate.add(
 			lightWeight.multiply(perKgRate)
-		);
+		).setScale(2, BigDecimal.ROUND_HALF_UP);
 		
 		BigDecimal heavyShippingCost = baseRate.add(
 			heavyWeight.multiply(perKgRate)
-		);
+		).setScale(2, BigDecimal.ROUND_HALF_UP);
 		
 		// Assert
-		assertEquals(new BigDecimal("10.00"), lightShippingCost,
+		assertEquals(0, new BigDecimal("10.00").compareTo(lightShippingCost),
 			"Light order shipping should be $10 (5 + 2.5*2)");
-		assertEquals(new BigDecimal("35.00"), heavyShippingCost,
+		assertEquals(0, new BigDecimal("35.00").compareTo(heavyShippingCost),
 			"Heavy order shipping should be $35 (5 + 15*2)");
 	}
 
