@@ -157,6 +157,46 @@ pipeline {
             }
         }
         
+        stage('Setup Kubernetes CLI') {
+            steps {
+                echo '🔧 Instalando kubectl...'
+                script {
+                    if (isUnix()) {
+                        sh """
+                            # Verificar si kubectl ya está instalado
+                            if ! command -v kubectl &> /dev/null; then
+                                echo "📥 kubectl no encontrado. Instalando..."
+                                
+                                # Descargar kubectl
+                                curl -LO "https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                                
+                                # Dar permisos de ejecución
+                                chmod +x kubectl
+                                
+                                # Mover a un directorio en el PATH
+                                sudo mv kubectl /usr/local/bin/ || mv kubectl \${WORKSPACE}/kubectl
+                                
+                                echo "✅ kubectl instalado correctamente"
+                            else
+                                echo "✅ kubectl ya está instalado: \$(kubectl version --client --short 2>/dev/null || kubectl version --client)"
+                            fi
+                        """
+                    } else {
+                        bat """
+                            where kubectl >nul 2>&1
+                            if errorlevel 1 (
+                                echo kubectl no encontrado. Por favor, instale kubectl en el agente de Jenkins.
+                                exit /b 1
+                            ) else (
+                                echo kubectl ya está instalado
+                                kubectl version --client
+                            )
+                        """
+                    }
+                }
+            }
+        }
+        
         stage('Create Kubernetes Namespace') {
             steps {
                 echo '🔧 Creando namespace de staging...'
@@ -164,6 +204,9 @@ pipeline {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en el contexto de kubectl por Jenkins
                                 # Solo verificamos la conexión
                                 echo "✅ Verificando conexión con Kubernetes..."
@@ -217,6 +260,9 @@ pipeline {
                             echo "Deploying ${service} to Kubernetes..."
                             if (isUnix()) {
                                 sh """
+                                    # Agregar kubectl al PATH si está en el workspace
+                                    export PATH=\${WORKSPACE}:\${PATH}
+                                    
                                     # El token ya está configurado en kubectl por Jenkins
                                     
                                     # Aplicar ConfigMap y Secrets si existen
@@ -264,6 +310,9 @@ pipeline {
                         // Aplicar Ingress
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 kubectl apply -f k8s/ingress.yaml -n ${NAMESPACE}
                             """
@@ -285,6 +334,9 @@ pipeline {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 
                                 echo "=== Pods Status ==="
@@ -329,6 +381,9 @@ pipeline {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Ejecutar script de health checks
@@ -355,6 +410,9 @@ pipeline {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Obtener la URL del API Gateway
@@ -386,6 +444,9 @@ pipeline {
                     withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 
                                 # Smoke test: Verificar endpoints críticos
@@ -417,6 +478,9 @@ pipeline {
                 withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
                     if (isUnix()) {
                         sh """
+                            # Agregar kubectl al PATH si está en el workspace
+                            export PATH=\${WORKSPACE}:\${PATH}
+                            
                             # El token ya está configurado en kubectl por Jenkins
                             echo "\\n=== Deployment Summary ==="
                             kubectl get all -n ${NAMESPACE}
@@ -435,6 +499,9 @@ pipeline {
                     allServices.each { service ->
                         if (isUnix()) {
                             sh """
+                                # Agregar kubectl al PATH si está en el workspace
+                                export PATH=\${WORKSPACE}:\${PATH}
+                                
                                 # El token ya está configurado en kubectl por Jenkins
                                 
                                 echo "Rolling back ${service}..."
