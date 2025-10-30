@@ -610,6 +610,76 @@ Removing ecommerce-microservice-backend-app_api-gateway-container_1       ... do
 Removing ecommerce-microservice-backend-app_favourite-service-container_1 ... done
 Removing network ecommerce-microservice-backend-app_default
 ```
+---
+
+## 🧪 Testing Suite
+
+This project includes a comprehensive testing suite covering 30%+ of the codebase with over 40 tests.
+
+### 📊 Test Coverage Summary
+
+| Test Type | Required | Implemented | Coverage |
+|-----------|----------|-------------|----------|
+| Unit Tests | 5+ | 13 | ✅ 260% |
+| Integration Tests | 5+ | 9 | ✅ 180% |
+| E2E Tests | 5+ | 18 | ✅ 360% |
+| Performance Tests | 4 scenarios | 4 | ✅ 100% |
+
+### 🚀 Quick Start - Running Tests
+
+#### 1. Unit Tests (2 minutes)
+```bash
+cd user-service && ./mvnw test
+cd ../product-service && ./mvnw test
+cd ../order-service && ./mvnw test
+```
+
+#### 2. Integration Tests (5 minutes)
+```bash
+cd order-service && ./mvnw test -Dtest=OrderServiceIntegrationTest
+cd ../shipping-service && ./mvnw test -Dtest=ShippingServiceIntegrationTest
+cd ../favourite-service && ./mvnw test -Dtest=FavouriteServiceIntegrationTest
+```
+
+#### 3. End-to-End Tests (10 minutes)
+```bash
+# Make sure all services are running first
+docker-compose up -d
+cd src/test/java/com/selimhorri/app/e2e
+mvn test
+```
+
+#### 4. Performance Tests with Locust (2-5 minutes)
+```bash
+cd performance-tests
+pip install locust
+locust -f locustfile.py --host=http://localhost:8080
+# Open http://localhost:8089
+```
+
+### 📚 Testing Documentation
+
+For detailed information about the testing suite:
+
+- **[TESTS_SUMMARY.md](TESTS_SUMMARY.md)** - Complete overview of all 40+ tests
+- **[QUICK_START_TESTS.md](QUICK_START_TESTS.md)** - Quick start guide for running tests
+- **[performance-tests/README.md](performance-tests/README.md)** - Locust performance testing guide
+
+### 🎯 Test Scenarios Covered
+
+- ✅ User registration and authentication
+- ✅ Product catalog management
+- ✅ Order creation and processing
+- ✅ Payment processing
+- ✅ Shipping calculation
+- ✅ Favorites management
+- ✅ Stock validation
+- ✅ Inter-service communication
+- ✅ Load testing (100+ concurrent users)
+- ✅ Error handling and edge cases
+
+---
+
 ### The End
 In the end, I hope you enjoyed the application and find it useful, as I did when I was developing it. 
 If you would like to enhance, please: 
@@ -618,4 +688,4 @@ If you would like to enhance, please:
 - Add **new suggestions**, and
 - Finally, give it a 🌟.
 
-*Happy Coding ...* 🙂
+*Happy Coding & Testing ...* 🙂 🧪
