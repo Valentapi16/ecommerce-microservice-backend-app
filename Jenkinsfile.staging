@@ -197,6 +197,13 @@ pipeline {
             }
         }
         
+        // stage('Deploy to Kubernetes') {
+        //     steps {
+        //         echo '🚀 Deploy deshabilitado temporalmente'
+        //     }
+        // }
+        
+        /*
         stage('Deploy to Kubernetes') {
             steps {
                 echo '🚀 Desplegando servicios a Kubernetes...'
@@ -282,7 +289,9 @@ pipeline {
                 }
             }
         }
+        */
         
+        /*
         stage('Verify Deployment') {
             steps {
                 echo '✅ Verificando estado del deployment...'
@@ -331,6 +340,7 @@ pipeline {
                 }
             }
         }
+        */
         
         // stage('Health Check Tests') {
         //     steps {
