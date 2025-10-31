@@ -201,7 +201,7 @@ pipeline {
             steps {
                 echo '🚀 Desplegando servicios a Kubernetes...'
                 script {
-                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'K8S_TOKEN')]) {
+                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
                         // Actualizar imagen tag en los manifiestos y aplicar
                         def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
                         
@@ -209,10 +209,9 @@ pipeline {
                             echo "Deploying ${service} to Kubernetes..."
                             if (isUnix()) {
                                 sh """
-                                    # Agregar kubectl al PATH si está en el workspace
-                                    export PATH=\${WORKSPACE}:\${PATH}
+                                    export KUBECONFIG=\$KUBECONFIG
                                     
-                                    # El token ya está configurado en kubectl por Jenkins
+                                    echo "📦 Desplegando ${service}..."
                                     
                                     # Aplicar ConfigMap y Secrets si existen
                                     if [ -f k8s/${service}/configmap.yaml ]; then
