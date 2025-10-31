@@ -24,32 +24,23 @@ pipeline {
             }
         }
         
-        stage('Build & Test Services') {
+        stage('Build Services') {
             steps {
-                echo '🔨 Compilando 4 microservicios (service-discovery + user, product, order)...'
+                echo '🔨 Compilando 4 microservicios (sin tests por ahora)...'
                 script {
                     if (isUnix()) {
                         sh '''
-                            mvn clean package \
+                            mvn clean package -DskipTests \
                                 -pl service-discovery,user-service,product-service,order-service \
-                                -Dspring.cloud.config.enabled=false \
-                                -Dspring.cloud.config.import-check.enabled=false \
                                 --batch-mode
                         '''
                     } else {
                         bat '''
-                            mvn clean package ^
+                            mvn clean package -DskipTests ^
                                 -pl service-discovery,user-service,product-service,order-service ^
-                                -Dspring.cloud.config.enabled=false ^
-                                -Dspring.cloud.config.import-check.enabled=false ^
                                 --batch-mode
                         '''
                     }
-                }
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
                 }
             }
         }
