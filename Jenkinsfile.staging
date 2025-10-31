@@ -235,6 +235,7 @@ pipeline {
                             } else {
                                 bat """
                                     @echo off
+                                    set KUBECONFIG=%KUBECONFIG%
                                     echo Desplegando ${service}...
                                     
                                     REM Aplicar ConfigMap y Secrets si existen
@@ -248,10 +249,14 @@ pipeline {
                                     
                                     REM Aplicar deployment y service directamente (sin modificar el YAML)
                                     kubectl apply -f k8s\\${service}\\deployment.yaml -n ${NAMESPACE}
+                                    if errorlevel 1 exit /b 1
+                                    
                                     kubectl apply -f k8s\\${service}\\service.yaml -n ${NAMESPACE}
+                                    if errorlevel 1 exit /b 1
                                     
                                     REM Esperar a que el deployment esté listo
                                     kubectl rollout status deployment/${service} -n ${NAMESPACE} --timeout=5m
+                                    if errorlevel 1 exit /b 1
                                 """
                             }
                         }
@@ -267,7 +272,9 @@ pipeline {
                             """
                         } else {
                             bat """
-                                REM El token ya está configurado en kubectl por Jenkins
+                                @echo off
+                                set KUBECONFIG=%KUBECONFIG%
+                                echo Aplicando Ingress...
                                 kubectl apply -f k8s\\ingress.yaml -n ${NAMESPACE}
                             """
                         }
@@ -307,6 +314,7 @@ pipeline {
                         } else {
                             bat """
                                 @echo off
+                                set KUBECONFIG=%KUBECONFIG%
                                 echo === Pods Status ===
                                 kubectl get pods -n ${NAMESPACE}
                                 
@@ -361,6 +369,7 @@ pipeline {
                     } else {
                         bat """
                             @echo off
+                            set KUBECONFIG=%KUBECONFIG%
                             echo.
                             echo === Deployment Summary ===
                             kubectl get all -n ${NAMESPACE}
@@ -386,6 +395,7 @@ pipeline {
                         } else {
                             bat """
                                 @echo off
+                                set KUBECONFIG=%KUBECONFIG%
                                 echo Rolling back ${service}...
                                 kubectl rollout undo deployment/${service} -n ${NAMESPACE} 2>nul
                             """
