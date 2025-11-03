@@ -1,11 +1,9 @@
 ﻿pipeline {
-    agent any
+    agent { label 'built-in' }
     
     environment {
         DOCKER_HUB_REPO = 'valentapi16'
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         NAMESPACE = 'ecommerce-staging'
-        KUBECONFIG_CREDENTIALS = credentials('kubeconfig-credentials')
         INFRASTRUCTURE_SERVICES = 'service-discovery'
         BUSINESS_SERVICES = 'user-service,product-service,order-service'
     }
@@ -63,7 +61,14 @@
         stage('Docker Login') {
             steps {
                 echo 'Autenticando en Docker Hub...'
-                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                script {
+                    // Usar credenciales configuradas en Jenkins o variables de entorno
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                                                      usernameVariable: 'DOCKER_USER', 
+                                                      passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    }
+                }
             }
         }
         
@@ -115,11 +120,16 @@
         stage('Setup Kubeconfig') {
             steps {
                 echo 'Configurando acceso a Kubernetes...'
-                sh '''
-                    mkdir -p $HOME/.kube
-                    echo "$KUBECONFIG_CREDENTIALS" > $HOME/.kube/config
-                    chmod 600 $HOME/.kube/config
-                '''
+                script {
+                    // Usar kubeconfig configurado en Jenkins o predeterminado del sistema
+                    withCredentials([file(credentialsId: 'kubeconfig-credentials', variable: 'KUBECONFIG_FILE')]) {
+                        sh '''
+                            mkdir -p $HOME/.kube
+                            cp $KUBECONFIG_FILE $HOME/.kube/config
+                            chmod 600 $HOME/.kube/config
+                        '''
+                    }
+                }
             }
         }
         
