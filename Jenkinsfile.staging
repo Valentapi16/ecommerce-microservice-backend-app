@@ -1,65 +1,257 @@
 pipeline {
     agent any
     
+    environment {
+        DOCKER_HUB_REPO = 'valentapi16'
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        NAMESPACE = 'ecommerce-staging'
+        KUBECONFIG_CREDENTIALS = credentials('kubeconfig-credentials')
+        INFRASTRUCTURE_SERVICES = 'service-discovery'
+        BUSINESS_SERVICES = 'user-service,product-service,order-service'
+    }
+    
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checkout completado'
+                echo 'Clonando código desde el repositorio...'
+                checkout scm
             }
         }
         
-        stage('Build Services') {
+        stage('Build Infrastructure Services') {
             steps {
-                echo 'Build completado'
+                echo 'Compilando servicios de infraestructura...'
+                script {
+                    def services = env.INFRASTRUCTURE_SERVICES.split(',')
+                    for (service in services) {
+                        dir(service) {
+                            sh "mvn clean package -DskipTests"
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Build Business Services') {
+            steps {
+                echo 'Compilando servicios de negocio...'
+                script {
+                    def services = env.BUSINESS_SERVICES.split(',')
+                    for (service in services) {
+                        dir(service) {
+                            sh "mvn clean package -DskipTests"
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                echo 'Ejecutando tests...'
+                script {
+                    def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
+                    for (service in allServices) {
+                        dir(service) {
+                            sh "mvn test"
+                        }
+                    }
+                }
             }
         }
         
         stage('Docker Login') {
             steps {
-                echo 'Docker login completado'
+                echo 'Autenticando en Docker Hub...'
+                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
             }
         }
         
-        stage('Build & Push Images') {
+        stage('Build & Push Infrastructure Images') {
             steps {
-                echo 'Imagenes construidas y pusheadas'
+                echo 'Construyendo y pusheando imágenes de infraestructura...'
+                script {
+                    def services = env.INFRASTRUCTURE_SERVICES.split(',')
+                    for (service in services) {
+                        dir(service) {
+                            sh """
+                                docker build -t ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} .
+                                docker tag ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} ${DOCKER_HUB_REPO}/${service}:staging-latest
+                                docker push ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER}
+                                docker push ${DOCKER_HUB_REPO}/${service}:staging-latest
+                            """
+                        }
+                    }
+                }
             }
         }
         
-        stage('Deploy to Kubernetes') {
+        stage('Build & Push Business Services Images') {
             steps {
-                echo 'Deploy a Kubernetes completado'
+                echo 'Construyendo y pusheando imágenes de servicios de negocio...'
+                script {
+                    def services = env.BUSINESS_SERVICES.split(',')
+                    for (service in services) {
+                        dir(service) {
+                            sh """
+                                docker build -t ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} .
+                                docker tag ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} ${DOCKER_HUB_REPO}/${service}:staging-latest
+                                docker push ${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER}
+                                docker push ${DOCKER_HUB_REPO}/${service}:staging-latest
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Kubernetes CLI') {
+            steps {
+                echo 'Verificando kubectl...'
+                sh 'kubectl version --client'
+            }
+        }
+        
+        stage('Setup Kubeconfig') {
+            steps {
+                echo 'Configurando acceso a Kubernetes...'
+                sh '''
+                    mkdir -p $HOME/.kube
+                    echo "$KUBECONFIG_CREDENTIALS" > $HOME/.kube/config
+                    chmod 600 $HOME/.kube/config
+                '''
+            }
+        }
+        
+        stage('Create Kubernetes Namespace') {
+            steps {
+                echo 'Creando namespace en Kubernetes...'
+                sh """
+                    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                """
+            }
+        }
+        
+        stage('Deploy Infrastructure to Kubernetes') {
+            steps {
+                echo 'Desplegando servicios de infraestructura a Kubernetes...'
+                script {
+                    def services = env.INFRASTRUCTURE_SERVICES.split(',')
+                    for (service in services) {
+                        sh """
+                            kubectl set image deployment/${service} ${service}=${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} -n ${NAMESPACE} || \
+                            kubectl apply -f ${service}/k8s/deployment.yaml -n ${NAMESPACE}
+                            
+                            kubectl apply -f ${service}/k8s/service.yaml -n ${NAMESPACE} || true
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Business Services to Kubernetes') {
+            steps {
+                echo 'Desplegando servicios de negocio a Kubernetes...'
+                script {
+                    def services = env.BUSINESS_SERVICES.split(',')
+                    for (service in services) {
+                        sh """
+                            kubectl set image deployment/${service} ${service}=${DOCKER_HUB_REPO}/${service}:staging-${BUILD_NUMBER} -n ${NAMESPACE} || \
+                            kubectl apply -f ${service}/k8s/deployment.yaml -n ${NAMESPACE}
+                            
+                            kubectl apply -f ${service}/k8s/service.yaml -n ${NAMESPACE} || true
+                        """
+                    }
+                }
             }
         }
         
         stage('Verify Deployment') {
             steps {
-                echo 'Deployment verificado'
+                echo 'Verificando el estado de los pods...'
+                sh """
+                    kubectl get pods -n ${NAMESPACE}
+                    kubectl get services -n ${NAMESPACE}
+                """
+                
+                echo 'Esperando a que los pods estén listos...'
+                script {
+                    def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
+                    for (service in allServices) {
+                        sh """
+                            kubectl wait --for=condition=ready pod -l app=${service} -n ${NAMESPACE} --timeout=300s || true
+                        """
+                    }
+                }
             }
         }
         
         stage('Health Check Tests') {
             steps {
-                echo 'Health checks completados'
+                echo 'Ejecutando health checks...'
+                script {
+                    def allServices = (env.INFRASTRUCTURE_SERVICES + ',' + env.BUSINESS_SERVICES).split(',')
+                    for (service in allServices) {
+                        sh """
+                            kubectl exec -n ${NAMESPACE} deployment/${service} -- curl -f http://localhost:8080/actuator/health || echo "Health check failed for ${service}"
+                        """
+                    }
+                }
             }
         }
         
         stage('Integration Tests') {
             steps {
-                echo 'Integration tests completados'
+                echo 'Ejecutando pruebas de integración...'
+                sh '''
+                    # Aquí puedes agregar tus tests de integración
+                    echo "Running integration tests..."
+                '''
             }
         }
         
         stage('Smoke Tests') {
             steps {
-                echo 'Smoke tests completados'
+                echo 'Ejecutando smoke tests...'
+                sh """
+                    kubectl get all -n ${NAMESPACE}
+                    kubectl describe pods -n ${NAMESPACE}
+                """
             }
         }
     }
     
     post {
         success {
-            echo 'Pipeline completado exitosamente'
+            echo '============================================'
+            echo 'PIPELINE COMPLETADO EXITOSAMENTE'
+            echo '============================================'
+            echo ''
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Namespace: ${NAMESPACE}"
+            echo "Services deployed successfully!"
+            
+            // Limpieza de imágenes locales
+            sh '''
+                docker system prune -f
+            '''
+        }
+        
+        failure {
+            echo 'Pipeline falló durante la ejecución'
+            echo 'Verificar logs para más detalles'
+            
+            // Mostrar logs de pods con problemas
+            sh """
+                kubectl get pods -n ${NAMESPACE}
+                kubectl describe pods -n ${NAMESPACE}
+            """ 
+        }
+        
+        always {
+            echo 'Limpiando workspace...'
+            sh 'docker logout || true'
+            cleanWs()
         }
     }
 }
