@@ -1,4 +1,4 @@
-pipeline {
+﻿pipeline {
     agent any
     
     environment {
@@ -219,6 +219,20 @@ pipeline {
                 """
             }
         }
+        
+        stage('Cleanup') {
+            steps {
+                echo 'Limpiando recursos...'
+                script {
+                    try {
+                        sh 'docker system prune -f'
+                        sh 'docker logout'
+                    } catch (Exception e) {
+                        echo "Cleanup warning: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
     }
     
     post {
@@ -230,28 +244,15 @@ pipeline {
             echo "Build Number: ${BUILD_NUMBER}"
             echo "Namespace: ${NAMESPACE}"
             echo "Services deployed successfully!"
-            
-            // Limpieza de imágenes locales
-            sh '''
-                docker system prune -f
-            '''
         }
         
         failure {
             echo 'Pipeline falló durante la ejecución'
             echo 'Verificar logs para más detalles'
-            
-            // Mostrar logs de pods con problemas
-            sh """
-                kubectl get pods -n ${NAMESPACE}
-                kubectl describe pods -n ${NAMESPACE}
-            """ 
         }
         
         always {
-            echo 'Limpiando workspace...'
-            sh 'docker logout || true'
-            cleanWs()
+            echo 'Pipeline execution completed'
         }
     }
 }
