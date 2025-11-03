@@ -41,7 +41,7 @@
             steps {
                 echo ' SUCCESS: Construyendo imágenes de infraestructura'
                 echo ' Building service-discovery...'
-                echo ' Pushing valentapi16/service-discovery:staging-\'
+                echo " Pushing valentapi16/service-discovery:staging-${BUILD_NUMBER}"
                 echo ' Pushing valentapi16/service-discovery:staging-latest'
                 echo ' Image pushed successfully'
             }
@@ -51,13 +51,13 @@
             steps {
                 echo ' SUCCESS: Construyendo imágenes de servicios de negocio'
                 echo ' Building user-service...'
-                echo ' Pushing valentapi16/user-service:staging-\'
+                echo " Pushing valentapi16/user-service:staging-${BUILD_NUMBER}"
                 echo ' Pushing valentapi16/user-service:staging-latest'
                 echo ' Building product-service...'
-                echo ' Pushing valentapi16/product-service:staging-\'
+                echo " Pushing valentapi16/product-service:staging-${BUILD_NUMBER}"
                 echo ' Pushing valentapi16/product-service:staging-latest'
                 echo ' Building order-service...'
-                echo ' Pushing valentapi16/order-service:staging-\'
+                echo " Pushing valentapi16/order-service:staging-${BUILD_NUMBER}"
                 echo ' Pushing valentapi16/order-service:staging-latest'
                 echo ' All images pushed successfully'
             }
@@ -179,7 +179,7 @@
             echo ' Resumen del Deployment:'
             echo '    Environment: STAGING'
             echo '    Namespace: ecommerce-staging'
-            echo '    Build Number: \'
+            echo "    Build Number: ${BUILD_NUMBER}"
             echo '    Services Deployed: 4'
             echo '    All Health Checks: PASSED '
             echo '    All Tests: PASSED '
